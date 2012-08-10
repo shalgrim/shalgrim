@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{0568fb5a-0c7a-4d31-8bff-6e94f95736bb}</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>brcarec_mean_sd_chain0435.py</StartupFile>
+    <StartupFile>median_iqr_rpts_per_ptnt.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -13,7 +13,7 @@
     <Name>onetime</Name>
     <RootNamespace>onetime</RootNamespace>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0435\data\config.cfg -o G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0435\out\out -l G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0435\out\log -m w -v 10</CommandLineArguments>
+    <CommandLineArguments>G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0436\data\config.cfg -o G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0437\out\out.txt -l G:\CTRHS\NLP_Deploy\PROGRAMMING\scott\BrCaRec\chains\0437\out\log.txt -m w -v 10</CommandLineArguments>
     <InterpreterPath />
     <InterpreterArguments />
   </PropertyGroup>
@@ -27,6 +27,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="brcarec_mean_sd_chain0435.py" />
+    <Compile Include="median_iqr_rpts_per_ptnt.py" />
+    <Compile Include="num_rpts_ptnts_w_reports.py" />
     <Compile Include="onetime.py" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

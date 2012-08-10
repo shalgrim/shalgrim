@@ -8,7 +8,7 @@ import std_import as si
 from org.ghri.util.util import mymath # TODO: fix that double util thing
 
 # get module logger
-logger = si.logging.getLogger('org.ghri.sharp.drug_ner.intersect_ngrams_and_ingreds')
+logger = si.logging.getLogger('org.ghri.shalgrim.onetime.brcarec_mean_sd_chain0435')
 
 if __name__ == '__main__':                  # if run as main, not if imported
     
