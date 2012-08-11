@@ -4,33 +4,80 @@ Date: 7/27/12
 Functionality: "Onetime" code used to determine the median and IQR
                number of reports per patient in the training, test,
                and all sets.
+               Does it with and without zero-report patients.  Gives
+               both sets of numbers.
 '''
 import std_import as si
-import re
+import re, copy
 from org.ghri.shalgrim.onetime.num_rpts_ptnts_w_reports import PNUM
 
 # get module logger
 logger = si.logging.getLogger('org.ghri.shalgrim.onetime.median_iqr_rpts_per_ptnt')
 
-def getRptNamesByPID(adir, pidfn):
+def getRptNamesByPID(adir, pidfn, includeZeroRptPtnts=True):
+    '''
+    Given a directory of pathology reports named in such a way that the filename
+    encodes the patient id according to the PNUM regex, a filename of a file 
+    containing a list of patients in the cohort, this function returns a dict
+    of patient IDs (as a string of an int) with the filenames belonging to that
+    patient.
+    If includeZeroRptPtnts is True, then all patients in that file are returned.
+    Those with no reports have an empty list as their value.
+    If includeZeroRptPtnts is False, then only those patients in the file and
+    who have reprots are returned.
+    '''
 
     # initialize dict to have every pid with empty list
     rptNamesByPID = {line.strip():[] for line in si.myos.readlines(pidfn)}
-    fns = si.myos.listdir(adir)             # get all filenames
+    fns = si.os.listdir(adir)             # get all filenames
 
     for fn in fns:                          # for each filename
         pid = PNUM.search(fn).group()       # get patient ID
 
-        # note that a defaultdict is not appropriate here because the directory
-        # has more patients than are in our filtered (primary > 1/1/95) cohorts
-        # and so I want to distinguish between those not in our cohort (exclude)
-        # and those in our cohort with zero reports (empty list)
         try:
             rptNamesByPID[pid].append(fn)   # add filename to list for that pid
-        except KeyError:
+        except KeyError:                    
             pass                            # if that ptnt not in list skip
 
+    # filter out patients with zero reports if appropriate
+    if not includeZeroRptPtnts:
+        rptNamesByPid = {k:v for k, v in rptNamesByPid.items() if len(v) > 0}
+
     return rptNamesByPID
+
+def getQuartileVals(rptsByPtnt):
+    '''
+    From a dict whose keys are ptnt IDs and whose values are lists of the reports
+    for that patient, calculates the median, and IQR q3 and q1 vals for the number
+    of reports for the set.
+    '''
+
+    # turn dict into list sorted by length of number of reports
+    rptsByPtntSorted = sorted(rptsByPtnt.items(), key=lambda (k, v): len(v))
+
+    # get median index
+    medind = len(rptsByPtntSorted)/2
+
+    # get median
+    if len(rptsByPtntSorted)%2 == 0:
+        med = (len(rptsByPtntSorted[medind][1]) + len(rptsByPtntSorted[medind-1][1]))/2.0
+    else:
+        med = len(rptsByPtntSorted[medind][1])
+
+
+    #get quartile indexes
+    # TODO: These wouldn't have made a difference for this data
+    #       but I should change the calcs to match with page 34 in my stats book
+    q1ind = int(len(rptsByPtntSorted)*0.25) + 1
+    q3ind = int(len(rptsByPtntSorted)*0.75)
+
+    # geat quartile values
+    q1 = len(rptsByPtntSorted[q1ind][1])
+    q3 = len(rptsByPtntSorted[q3ind][1])
+
+    return (q1, med, q3)
+
+
 
 if __name__ == '__main__':                  # if run as main, not if imported
     
@@ -56,41 +103,39 @@ if __name__ == '__main__':                  # if run as main, not if imported
     testFilterFn = cp.get('Main', 'TestPIDsFile')
     outfn = options.outfn       # get name of output file
 
-    # TODO: modularize for test and all
+
     trnRptsByPtnt = getRptNamesByPID(trndir, trnFilterFn)
-    trnRptsByPtntSorted = sorted(trnRptsByPtnt.items(), key=lambda k, v: len(v))
+    testRptsByPtnt = getRptNamesByPID(testdir, testFilterFn)
 
-    # get median index
-    medind = len(trnRprtsByPtntSorted)/2
+    # make all dict.  could make into util function
+    # first verify there's no overlap in patients
+    assert len(set(trnRptsByPtnt.keys()).intersection(set(testRptsByPtnt.keys()))) == 0
 
-    # get median
-    if len(trnRptsByPtntSorted)%2 == 0:
-        trnmed = (len(trnRptsByPtntSorted[medind][1]) + len(trnRptsByPtntSorted[medind-1][1]))/2.0
-    else:
-        trnmed = len(trnRptsByPtntSorted[medind][1])
+    allRptsByPtnt = copy.copy(trnRptsByPtnt)        # then initialize by copying train
 
-    # get median index
-    medind = len(trnRprtsByPtntSorted)/2
+    for k, v in testRptsByPtnt.items():             # then add those from test
+        allRptsByPtnt[k] = v
 
-    # get median
-    if len(testRptsByPtntSorted)%2 == 0:
-        testmed = (len(testRptsByPtntSorted[medind][1]) + len(testRptsByPtntSorted[medind-1][1]))/2.0
-    else:
-        trnmed = len(testRptsByPtntSorted[medind][1])
+    # get q1, med, and q3 for train, test, and all sets
+    trnq1, trnmed, trnq3 = getQuartileVals(trnRptsByPtnt)
+    testq1, testmed, testq3 = getQuartileVals(testRptsByPtnt)
+    allq1, allmed, allq3 = getQuartileVals(allRptsByPtnt)
 
-    q1ind = int(len(trnRptsByPtntSorted)*0.25) + 1
-    q3ind = int(len(trnRptsByPtntSorted*0.75))
+    # create output for the numbers when 0-rpt ptnts included
+    outlines = ['WITH ZERO REPORT PATIENTS']
+    outlines.append('TRAIN q1: %.1f, median: %.1f, q3: %.1f'%(trnq1, trnmed, trnq3))
+    outlines.append('TEST q1: %.1f, median: %.1f, q3: %.1f'%(testq1, testmed, testq3))
+    outlines.append('ALL q1: %.1f, median: %.1f, q3: %.1f'%(allq1, allmed, allq3))
 
-    q1 = len(trnRptsByPtntSorted[q1ind][1])
-    q3 = len(trnRptsByPtntSorted[q3ind][1])
+    # run it again but remove zero-report patients
+    trnq1, trnmed, trnq3 = getQuartileVals({k:v for k, v in trnRptsByPtnt.items() if len(v) > 0})
+    testq1, testmed, testq3 = getQuartileVals({k:v for k, v in testRptsByPtnt.items() if len(v) > 0})
+    allq1, allmed, allq3 = getQuartileVals({k:v for k, v in allRptsByPtnt.items() if len(v) > 0})
 
-    #trnSetIds = getPtntIdSet(trnFilterFn)
-    #testSetIds = getPtntIdSet(testFilterFn)
+    # create output for when 0-rpt ptnts excluded
+    outlines.append('WITHOUT ZERO REPORT PATIENTS')
+    outlines.append('TRAIN q1: %.1f, median: %.1f, q3: %.1f'%(trnq1, trnmed, trnq3))
+    outlines.append('TEST q1: %.1f, median: %.1f, q3: %.1f'%(testq1, testmed, testq3))
+    outlines.append('ALL q1: %.1f, median: %.1f, q3: %.1f'%(allq1, allmed, allq3))
 
-    #outlines = []
-    #outlines.append('numTrnRpts: %d'%(getNumReports(trndir, trnSetIds)))
-    #outlines.append('numTestRpts: %d'%(getNumReports(testdir, testSetIds)))
-    #outlines.append('numTrnPtntsWithRpt: %d'%(getNumPtnts(trndir, trnSetIds)))
-    #outlines.append('numTestPtntsWithRpt: %d'%(getNumPtnts(testdir, testSetIds)))
-
-    #si.myos.writelines(outlines, outfn)
+    si.myos.writelines(outlines, outfn)
